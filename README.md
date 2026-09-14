@@ -9,6 +9,9 @@
 - 使用 `yfinance` 管理 Yahoo 的会话、cookie 与 crumb；请求串行执行，1.5 秒节流，429 限流时停止后续请求。
 - 将每次由 `yfinance` 标准化的 Yahoo 日频返回及元数据缓存至 `data/raw/prices/`，记录来源、抓取时间、时区、频率、币种与复权口径。
 - 生成含最新收盘价、成交量、缓存路径和逐标的质量告警的盘后研究报告。
+- 使用 FMP EOD 作为 Yahoo 的独立只读日频校验源；分别缓存并在报告中展示同日同口径的收盘价差异及套餐限制。
+- 从 BLS、BEA、Federal Reserve 官方页面采集宏观发布日期候选，保存本地原始证据与独立 SQLite 审计索引；来源失败会明确降级。
+- 通过 FRED CSV 自动获取 BLS 发布的 CPI、核心 CPI、非农与失业率最新观测；可在无代理环境运行，仍标记为待审核候选。
 - 将 ETF 官方页面候选资料以 SQLite 审计快照保存到 `data/processed/etf/candidate-history.sqlite3`，支持按标的和抓取时间追溯；候选不会自动写为已核验事实。
 - 提供未安装的 macOS `launchd` 每日任务模板。
 

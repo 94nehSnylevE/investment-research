@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "market": "us",
+  "timezone": "America/New_York",
+  "events": [
+    {
+      "event_key": "pce",
+      "display_name": "PCE / Personal Income and Outlays",
+      "publisher": "U.S. Bureau of Economic Analysis",
+      "source_url": "https://www.bea.gov/news/schedule",
+      "parser": "bea_pce"
+    },
+    {
+      "event_key": "fomc",
+      "display_name": "FOMC 会议",
+      "publisher": "Federal Reserve Board",
+      "source_url": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+      "parser": "fomc"
+    },
+    {
+      "event_key": "effective_federal_funds_rate",
+      "display_name": "有效联邦基金利率（H.15）",
+      "publisher": "Federal Reserve Board",
+      "source_url": "https://www.federalreserve.gov/releases/h15/",
+      "parser": "h15"
+    }
+  ]
+}

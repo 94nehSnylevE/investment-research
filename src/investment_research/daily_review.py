@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from investment_research.data.daily_prices import DailyPrice, PriceFetchResult, fetch_us_etf_daily_prices
+from investment_research.data.fmp_daily_prices import fetch_us_etf_fmp_daily_prices
 from investment_research.etf_profiles import load_etf_profiles, profile_summary
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -45,6 +46,9 @@ def build_daily_review(
     generated_at: datetime,
     price_results: Optional[list[PriceFetchResult]] = None,
     etf_profiles: Optional[dict[str, dict[str, Any]]] = None,
+    fmp_price_results: Optional[list[PriceFetchResult]] = None,
+    macro_results: Optional[list[Any]] = None,
+    fred_indicator_results: Optional[list[Any]] = None,
 ) -> str:
     """构建每日研究 Markdown，并清晰区分价格、资料状态、事实和待办。"""
     lines = ["# 每日研究报告", "", f"生成时间（UTC）：{generated_at.isoformat()}", "", "## 本次范围"]
@@ -54,6 +58,46 @@ def build_daily_review(
 
     if etf_profiles is not None:
         lines.extend(["", "## ETF 静态资料状态", *_profile_status_lines(config, etf_profiles)])
+
+    if macro_results is not None:
+        lines.extend(
+            [
+                "",
+                "## 官方宏观日历（候选）",
+                "",
+                "| 事件 | 官方发布日期（纽约） | 参考期 | 来源 | 状态 |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
+        for result in macro_results:
+            if result.error:
+                lines.append(f"| {result.display_name} | N/A | N/A | `{result.cache_path.relative_to(PROJECT_ROOT)}` | 来源失败：{result.error} |")
+                continue
+            upcoming = [event for event in result.events if event.scheduled_date >= generated_at.date().isoformat()]
+            if not upcoming:
+                warning = result.warnings[0] if result.warnings else "未取得未来发布日期，待人工查看原始证据。"
+                lines.append(f"| {result.display_name} | N/A | N/A | `{result.cache_path.relative_to(PROJECT_ROOT)}` | {warning} |")
+                continue
+            for event in upcoming:
+                lines.append(f"| {event.display_name} | {event.scheduled_date} | {event.reference_period or 'N/A'} | `{event.raw_path.relative_to(PROJECT_ROOT)}` | pending_review |")
+        lines.append("- 仅为官方页面解析出的待审核日历候选；未接入官方预期值，也不产生宏观解释或交易信号。")
+
+    if fred_indicator_results is not None:
+        lines.extend(
+            [
+                "",
+                "## FRED 宏观指标（候选）",
+                "",
+                "| 指标 | 最新观测期 | 值 | 单位/口径 | 原始发布方 | 原始缓存 | 状态 |",
+                "| --- | --- | ---: | --- | --- | --- | --- |",
+            ]
+        )
+        for result in fred_indicator_results:
+            if result.error:
+                lines.append(f"| {result.display_name} | N/A | N/A | {result.unit} | {result.original_publisher} | `{result.cache_path.relative_to(PROJECT_ROOT)}` | 来源失败：{result.error} |")
+            else:
+                lines.append(f"| {result.display_name} | {result.observation_date} | {result.value:g} | {result.unit} | {result.original_publisher}（经 FRED） | `{result.cache_path.relative_to(PROJECT_ROOT)}` | pending_review |")
+        lines.append("- FRED 指标用于追溯已发布观测；不是发布日期、市场预期或交易信号，且不会写入 ETF profile。")
 
     if price_results is None:
         lines.extend(["", "## 美股 ETF 日频价格", "- `--dry-run`：已校验配置，未联网抓取或写入价格数据缓存。"])
@@ -69,8 +113,10 @@ def build_daily_review(
             ]
         )
         lines.extend(_render_price_row(result) for result in price_results)
+        if fmp_price_results is not None:
+            lines.extend(["", "## Yahoo 与 FMP 日频交叉校验", *_fmp_cross_check_lines(price_results, fmp_price_results)])
         lines.extend(["", "## 研究待办", *_research_todos(price_results)])
-        quality_messages = _quality_messages(price_results)
+        quality_messages = _quality_messages(price_results, fmp_price_results)
         lines.extend(["", "## 数据质量告警"])
         lines.extend(f"- {message}" for message in quality_messages) if quality_messages else lines.append(
             "- 未发现阻断性错误；仍须人工核验复权口径。"
@@ -81,7 +127,8 @@ def build_daily_review(
             "",
             "## 使用边界",
             "- 数据仅供研究；免费或延迟数据不得用于自动交易。",
-            "- 当前记录 Yahoo 的未复权收盘价；不同复权口径不得混入回测。",
+            "- Yahoo 与 FMP 均按未复权日频 Close 记录；不同复权口径不得混入回测。",
+            "- FMP 仅是 Yahoo 的独立价格校验源；两个来源的价格不会拼接、替换或产生交易信号。",
             "- ETF 静态资料只有 `verified` 状态且带来源的条目才能作为事实；当前待核验条目不展示候选数值。",
             "- 观察池概览为等权描述性统计，不是指数、预测、投资建议或交易信号。",
             "- 所有结论与提醒均需人工核验；本报告不产生交易指令或下单请求。",
@@ -99,8 +146,15 @@ def run_daily_review(config_path: Path = DEFAULT_WATCHLIST, dry_run: bool = Fals
         print(build_daily_review(config, generated_at, etf_profiles=etf_profiles), end="")
         return None
 
-    price_results = fetch_us_etf_daily_prices(_us_etf_symbols(config), DATA_ROOT)
-    report = build_daily_review(config, generated_at, price_results, etf_profiles)
+    symbols = _us_etf_symbols(config)
+    price_results = fetch_us_etf_daily_prices(symbols, DATA_ROOT)
+    fmp_price_results = fetch_us_etf_fmp_daily_prices(symbols, DATA_ROOT)
+    from investment_research.fred_indicators import fetch_fred_indicators
+    from investment_research.macro_calendar import fetch_official_macro_calendar
+
+    macro_results = fetch_official_macro_calendar(DATA_ROOT)
+    fred_indicator_results = fetch_fred_indicators(DATA_ROOT)
+    report = build_daily_review(config, generated_at, price_results, etf_profiles, fmp_price_results, macro_results, fred_indicator_results)
     report_directory = PROJECT_ROOT / "reports" / "daily"
     report_directory.mkdir(parents=True, exist_ok=True)
     report_path = report_directory / f"{generated_at.date().isoformat()}_daily_review.md"
@@ -160,6 +214,43 @@ def _market_overview(price_results: list[PriceFetchResult]) -> list[str]:
     ]
 
 
+def _fmp_cross_check_lines(
+    yahoo_results: list[PriceFetchResult], fmp_results: list[PriceFetchResult]
+) -> list[str]:
+    """只展示同日、同币种、同调整口径的 Close 差异，不修改任一来源数据。"""
+    fmp_by_symbol = {result.symbol: result for result in fmp_results}
+    lines = [
+        "",
+        "| 标的 | Yahoo 交易日 | FMP 交易日 | Yahoo Close | FMP Close | 差异 | 状态 |",
+        "| --- | --- | --- | ---: | ---: | ---: | --- |",
+    ]
+    for yahoo in yahoo_results:
+        fmp = fmp_by_symbol.get(yahoo.symbol)
+        if yahoo.price is None or fmp is None or fmp.price is None:
+            reason = yahoo.error or (fmp.error if fmp else "FMP 结果缺失")
+            lines.append(f"| {yahoo.symbol} | N/A | N/A | N/A | N/A | N/A | 待人工核验：{reason} |")
+            continue
+        yahoo_price, fmp_price = yahoo.price, fmp.price
+        comparable = (
+            yahoo_price.timestamp[:10] == fmp_price.timestamp[:10]
+            and yahoo_price.currency == fmp_price.currency
+            and yahoo_price.adjustment_method == fmp_price.adjustment_method
+        )
+        if not comparable:
+            lines.append(
+                f"| {yahoo.symbol} | {yahoo_price.timestamp[:10]} | {fmp_price.timestamp[:10]} | "
+                f"{yahoo_price.close:.2f} | {fmp_price.close:.2f} | N/A | 口径或交易日不一致，待人工核验 |"
+            )
+            continue
+        difference = (fmp_price.close / yahoo_price.close - 1) * 100
+        lines.append(
+            f"| {yahoo.symbol} | {yahoo_price.timestamp[:10]} | {fmp_price.timestamp[:10]} | "
+            f"{yahoo_price.close:.2f} | {fmp_price.close:.2f} | {difference:+.4f}% | 同日同口径，仍需人工核验 |"
+        )
+    lines.append("- 不设自动通过阈值；任何差异均仅供人工复核，不会生成买卖结论。")
+    return lines
+
+
 def _research_todos(price_results: list[PriceFetchResult]) -> list[str]:
     movable = [result for result in price_results if result.price and result.price.daily_change_pct is not None]
     moves = sorted(movable, key=lambda result: abs(result.price.daily_change_pct or 0), reverse=True)
@@ -171,7 +262,7 @@ def _research_todos(price_results: list[PriceFetchResult]) -> list[str]:
             f"- [ ] 核验 {leading.symbol} 日涨跌 {leading.daily_change_pct:+.2f}% 的新闻、公告或成分暴露变化（当前未接入新闻数据源）。"
         )
     todos.append("- [ ] 使用官方资料人工审核 ETF 费用率、基准和持仓/权重，再将带来源的事实写入 profile。")
-    todos.append("- [ ] 人工复核 Yahoo 未复权收盘价、交易日及异常成交量，再形成研究结论。")
+    todos.append("- [ ] 人工复核 Yahoo/FMP 日频 Close 的交易日、未复权口径及异常成交量，再形成研究结论。")
     return todos
 
 
@@ -192,10 +283,12 @@ def _format_pct(value: Optional[float]) -> str:
     return "N/A" if value is None else f"{value:+.2f}%"
 
 
-def _quality_messages(price_results: list[PriceFetchResult]) -> list[str]:
+def _quality_messages(
+    price_results: list[PriceFetchResult], fmp_price_results: Optional[list[PriceFetchResult]] = None
+) -> list[str]:
     messages: list[str] = []
-    for result in price_results:
+    for result in [*price_results, *(fmp_price_results or [])]:
         if result.error:
-            messages.append(f"{result.symbol}：{result.error}")
-        messages.extend(f"{result.symbol}：{warning}" for warning in result.warnings)
+            messages.append(f"{result.provider}/{result.symbol}：{result.error}")
+        messages.extend(f"{result.provider}/{result.symbol}：{warning}" for warning in result.warnings)
     return messages

@@ -22,3 +22,13 @@
 - 网页搜索、新闻、LLM 输出和未审核下载件只能作为候选证据或观点，不能直接写入事实区。
 - ETF 候选快照写入本地 SQLite：`data/processed/etf/candidate-history.sqlite3`。每条快照记录来源、抓取时间、原始/处理文件路径、SHA-256 和候选字段，便于按标的和日期追溯。
 - SQLite 中的候选快照和字段状态固定为 `pending_review`，只作审计索引；原始 HTML/JSON 仍是证据原件，`config/etf-profiles.json` 仍是人工审核后 `verified` 事实的唯一来源。
+
+## 宏观发布日期候选
+
+CPI、就业、PCE、FOMC 与利率页面的发布日期属于独立的宏观候选，不得写入 ETF profile 或 ETF 候选 SQLite。每次采集应记录 `event_key`、发布方、`scheduled_date`、`reference_period`、来源 URL、`retrieved_at`、原始证据 SHA-256 和 `pending_review` 状态。
+
+- 官方页面解析出的日期仅作为日历候选；不代表市场预期、实际发布数值、政策解释或交易信号。
+- 一致预期不是政府机构发布的官方事实；当前阶段统一显示为未接入，未来必须使用许可清晰的独立来源。
+- 来源失败、解析失败或陈旧缓存必须在报告中明确降级，不得使用第三方数据静默替代。
+- CPI、核心 CPI、非农和失业率可通过 FRED 获取 BLS 来源的已发布观测；必须同时记录 FRED、BLS 原始发布方、series ID、观测期、单位、缓存哈希与 `pending_review` 状态。
+- FRED 已发布观测不提供完整未来发布日期或市场一致预期；两者仍须使用独立、可追溯来源并分栏展示。
