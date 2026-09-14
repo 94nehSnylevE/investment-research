@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.DS_Store
+
+# 原始、处理后的市场数据与自动生成报告不提交版本库。
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+reports/daily/*
+!reports/daily/.gitkeep
+reports/research/*
+!reports/research/.gitkeep
+logs/*
+!logs/.gitkeep

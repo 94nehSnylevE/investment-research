@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "jobs": {
+    "daily_review": {
+      "enabled": false,
+      "purpose": "盘后研究任务；启用前应确认对应市场收盘时间、数据可用时间与本机时区。",
+      "schedule_type": "launchd_template",
+      "template": "ops/launchd/com.user.investment-research.daily-review.plist.template"
+    },
+    "intraday_alerts": {
+      "enabled": false,
+      "purpose": "盘中提醒必须使用已验证的行情提供商与事件流；当前项目未实现实时行情或下单。"
+    }
+  }
+}

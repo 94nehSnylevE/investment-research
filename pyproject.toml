@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools==75.8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "investment-research"
+version = "0.1.0"
+description = "个人投研、回测与提醒工作台"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["yfinance==0.2.66"]
+
+[project.scripts]
+invest-research = "investment_research.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

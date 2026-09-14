@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "markets": {
+    "us": {
+      "timezone": "America/New_York",
+      "symbols": [
+        {
+          "symbol": "SPY",
+          "name": "SPDR S&P 500 ETF Trust",
+          "asset_class": "ETF",
+          "benchmark": "S&P 500",
+          "priority": "high",
+          "currency": "USD"
+        },
+        {
+          "symbol": "QQQ",
+          "name": "Invesco QQQ Trust",
+          "asset_class": "ETF",
+          "benchmark": "Nasdaq-100",
+          "priority": "high",
+          "currency": "USD"
+        },
+        {
+          "symbol": "IWM",
+          "name": "iShares Russell 2000 ETF",
+          "asset_class": "ETF",
+          "benchmark": "Russell 2000",
+          "priority": "medium",
+          "currency": "USD"
+        },
+        {
+          "symbol": "TLT",
+          "name": "iShares 20+ Year Treasury Bond ETF",
+          "asset_class": "ETF",
+          "benchmark": "ICE U.S. Treasury 20+ Year Bond Index",
+          "priority": "medium",
+          "currency": "USD"
+        },
+        {
+          "symbol": "GLD",
+          "name": "SPDR Gold Shares",
+          "asset_class": "ETF",
+          "benchmark": "LBMA Gold Price",
+          "priority": "medium",
+          "currency": "USD"
+        }
+      ]
+    },
+    "cn": {
+      "timezone": "Asia/Shanghai",
+      "symbols": ["510300", "510500"]
+    },
+    "hk": {
+      "timezone": "Asia/Hong_Kong",
+      "symbols": ["0700.HK"]
+    }
+  }
+}

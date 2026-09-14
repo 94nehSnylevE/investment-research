@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "SPY": {
+      "symbol": "SPY",
+      "market": "us",
+      "profile_status": "pending_review",
+      "reviewed_at": null,
+      "facts": {
+        "expense_ratio": {"status": "pending_review"},
+        "holdings": {"status": "pending_review"},
+        "sector_weights": {"status": "pending_review"},
+        "country_weights": {"status": "pending_review"},
+        "benchmark": {"status": "pending_review"}
+      },
+      "sources": [
+        {
+          "id": "ssga_spy_fund_page",
+          "publisher": "State Street Global Advisors",
+          "source_type": "official_fund_page",
+          "source_url": "https://www.ssga.com/us/en/intermediary/capabilities/spdr-core-equity-etfs/spy-sp-500",
+          "as_of": null,
+          "retrieved_at": "2026-09-14T01:10:00+00:00",
+          "evidence_sha256": null,
+          "verification_status": "pending_review"
+        }
+      ]
+    },
+    "QQQ": {
+      "symbol": "QQQ",
+      "market": "us",
+      "profile_status": "pending_review",
+      "reviewed_at": null,
+      "facts": {
+        "expense_ratio": {"status": "pending_review"},
+        "holdings": {"status": "pending_review"},
+        "sector_weights": {"status": "pending_review"},
+        "country_weights": {"status": "pending_review"},
+        "benchmark": {"status": "pending_review"}
+      },
+      "sources": [
+        {
+          "id": "invesco_qqq_fund_page",
+          "publisher": "Invesco",
+          "source_type": "official_fund_page",
+          "source_url": "https://www.invesco.com/qqq-etf/en/home.html",
+          "as_of": null,
+          "retrieved_at": "2026-09-14T01:10:00+00:00",
+          "evidence_sha256": null,
+          "verification_status": "pending_review"
+        }
+      ]
+    },
+    "IWM": {
+      "symbol": "IWM",
+      "market": "us",
+      "profile_status": "pending_review",
+      "reviewed_at": null,
+      "facts": {
+        "expense_ratio": {"status": "pending_review"},
+        "holdings": {"status": "pending_review"},
+        "sector_weights": {"status": "pending_review"},
+        "country_weights": {"status": "pending_review"},
+        "benchmark": {"status": "pending_review"}
+      },
+      "sources": [
+        {
+          "id": "ishares_iwm_fund_page",
+          "publisher": "iShares by BlackRock",
+          "source_type": "official_fund_page",
+          "source_url": "https://www.ishares.com/us/products/239710/ishares-russell-2000-etf",
+          "as_of": null,
+          "retrieved_at": "2026-09-14T01:10:00+00:00",
+          "evidence_sha256": null,
+          "verification_status": "pending_review"
+        }
+      ]
+    },
+    "TLT": {
+      "symbol": "TLT",
+      "market": "us",
+      "profile_status": "pending_review",
+      "reviewed_at": null,
+      "facts": {
+        "expense_ratio": {"status": "pending_review"},
+        "holdings": {"status": "pending_review"},
+        "sector_weights": {"status": "pending_review"},
+        "country_weights": {"status": "pending_review"},
+        "benchmark": {"status": "pending_review"}
+      },
+      "sources": [
+        {
+          "id": "ishares_tlt_fund_page",
+          "publisher": "iShares by BlackRock",
+          "source_type": "official_fund_page",
+          "source_url": "https://www.ishares.com/us/products/239454/ishares-20-year-treasury-bond-etf",
+          "as_of": null,
+          "retrieved_at": "2026-09-14T01:10:00+00:00",
+          "evidence_sha256": null,
+          "verification_status": "pending_review"
+        }
+      ]
+    },
+    "GLD": {
+      "symbol": "GLD",
+      "market": "us",
+      "profile_status": "pending_review",
+      "reviewed_at": null,
+      "facts": {
+        "expense_ratio": {"status": "pending_review"},
+        "holdings": {"status": "pending_review"},
+        "sector_weights": {"status": "not_applicable", "reason": "实物黄金 ETF 不以股票行业权重描述。"},
+        "country_weights": {"status": "not_applicable", "reason": "实物黄金 ETF 不以股票国家权重描述。"},
+        "benchmark": {"status": "pending_review"}
+      },
+      "sources": [
+        {
+          "id": "ssga_gld_fund_page",
+          "publisher": "State Street Global Advisors",
+          "source_type": "official_fund_page",
+          "source_url": "https://www.ssga.com/us/en/intermediary/etfs/spdr-gold-shares-gld",
+          "as_of": null,
+          "retrieved_at": "2026-09-14T01:10:00+00:00",
+          "evidence_sha256": null,
+          "verification_status": "pending_review"
+        }
+      ]
+    }
+  }
+}
