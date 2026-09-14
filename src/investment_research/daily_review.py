@@ -149,9 +149,11 @@ def run_daily_review(config_path: Path = DEFAULT_WATCHLIST, dry_run: bool = Fals
     symbols = _us_etf_symbols(config)
     price_results = fetch_us_etf_daily_prices(symbols, DATA_ROOT)
     fmp_price_results = fetch_us_etf_fmp_daily_prices(symbols, DATA_ROOT)
+    from investment_research.data.price_history import record_price_fetches
     from investment_research.fred_indicators import fetch_fred_indicators
     from investment_research.macro_calendar import fetch_official_macro_calendar
 
+    record_price_fetches([*price_results, *fmp_price_results])
     macro_results = fetch_official_macro_calendar(DATA_ROOT)
     fred_indicator_results = fetch_fred_indicators(DATA_ROOT)
     report = build_daily_review(config, generated_at, price_results, etf_profiles, fmp_price_results, macro_results, fred_indicator_results)

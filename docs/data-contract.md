@@ -32,3 +32,11 @@ CPI、就业、PCE、FOMC 与利率页面的发布日期属于独立的宏观候
 - 来源失败、解析失败或陈旧缓存必须在报告中明确降级，不得使用第三方数据静默替代。
 - CPI、核心 CPI、非农和失业率可通过 FRED 获取 BLS 来源的已发布观测；必须同时记录 FRED、BLS 原始发布方、series ID、观测期、单位、缓存哈希与 `pending_review` 状态。
 - FRED 已发布观测不提供完整未来发布日期或市场一致预期；两者仍须使用独立、可追溯来源并分栏展示。
+
+## 日频价格历史
+
+Yahoo Finance 与 FMP 的每次日频拉取会保留原始 JSON/metadata，并将来源、抓取时间、`live`/`cache`/`error` 状态、证据文件 SHA-256 和可用的最新交易日 OHLCV 写入 `data/processed/prices/daily-price-history.sqlite3`。
+
+- SQLite 是原始价格文件的审计索引，不替代 `data/raw/prices/` 的证据原件。
+- Yahoo 与 FMP 价格按 `provider` 独立保存；不得在数据库或回测中静默合并、覆盖或替代彼此。
+- `cache` 表示本次实时请求失败后使用旧成功缓存，`error` 表示本次没有可用价格；两种状态均不应被误标为实时数据。
