@@ -11,8 +11,9 @@ import json
 import sqlite3
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.parse import urlsplit, urlunsplit
 
-from investment_research.etf_profiles import PROJECT_ROOT
+from investment_research.etf_profiles import FACT_NAMES, PROJECT_ROOT
 
 DEFAULT_CANDIDATE_HISTORY_DB = PROJECT_ROOT / "data" / "processed" / "etf" / "candidate-history.sqlite3"
 _SCHEMA_VERSION = 1
@@ -72,7 +73,11 @@ def record_pending_snapshot(
         raise ValueError("候选审计库只允许写入 pending_review 数据。")
 
     source = _required_mapping(candidate, "source")
+    if source.get("verification_status") != "pending_review":
+        raise ValueError("候选来源必须标记为 pending_review。")
     facts = _required_mapping(candidate, "facts")
+    if not facts or not set(facts).issubset(FACT_NAMES):
+        raise ValueError("候选字段必须是非空的 ETF 事实字段子集。")
     raw_path = _project_path(_required_text(source, "raw_path"))
     metadata_path = _project_path(_required_text(source, "metadata_path"))
     if not raw_path.is_file() or not metadata_path.is_file() or not candidate_path.is_file():
@@ -195,6 +200,46 @@ def list_pending_snapshots(
                 }
             )
     return results
+
+
+def candidate_audit_summary(
+    symbol: str, database_path: Path = DEFAULT_CANDIDATE_HISTORY_DB
+) -> dict[str, Any]:
+    """返回只读候选审计摘要，不返回未审核的字段数值。"""
+    if not database_path.exists():
+        return {"snapshot_count": 0, "source_document_count": 0, "latest_retrieved_at": None}
+    with _connect_readonly(database_path) as connection:
+        row = connection.execute(
+            """
+            SELECT source_url, publisher, source_type, retrieved_at
+            FROM candidate_snapshots
+            WHERE symbol = ? AND status = 'pending_review'
+            """,
+            (symbol.upper(),),
+        ).fetchall()
+    return {
+        "snapshot_count": len(row),
+        "source_document_count": len(
+            {
+                (item["publisher"], item["source_type"], _canonical_source_url(item["source_url"]))
+                for item in row
+            }
+        ),
+        "latest_retrieved_at": max((item["retrieved_at"] for item in row), default=None),
+    }
+
+
+def _canonical_source_url(url: str) -> str:
+    parsed_url = urlsplit(url)
+    path = parsed_url.path.rstrip("/") or "/"
+    return urlunsplit((parsed_url.scheme.lower(), (parsed_url.hostname or "").lower(), path, "", ""))
+
+
+def _connect_readonly(database_path: Path) -> sqlite3.Connection:
+    connection = sqlite3.connect(f"file:{database_path.resolve()}?mode=ro", uri=True)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA query_only = ON")
+    return connection
 
 
 def _connect(database_path: Path) -> sqlite3.Connection:

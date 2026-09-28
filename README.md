@@ -12,6 +12,7 @@
 - 使用 FMP EOD 作为 Yahoo 的独立只读日频校验源；分别缓存并在报告中展示同日同口径的收盘价差异及套餐限制。
 - 从 BLS、BEA、Federal Reserve 官方页面采集宏观发布日期候选，保存本地原始证据与独立 SQLite 审计索引；来源失败会明确降级。
 - 通过 FRED CSV 自动获取 BLS 发布的 CPI、核心 CPI、非农与失业率最新观测；可在无代理环境运行，仍标记为待审核候选。
+- 支持在宏观数据发布前人工保存预期/前值候选，发布后按参考期从 FRED 计算首次捕获值、预期差候选和后续修订，保存到独立 append-only SQLite 审计库。
 - 将 Yahoo/FMP 每次日频价格结果（含实时、缓存降级和失败）写入本地 SQLite 审计库，支持按标的、来源和交易日追溯。
 - 将 ETF 官方页面候选资料以 SQLite 审计快照保存到 `data/processed/etf/candidate-history.sqlite3`，支持按标的和抓取时间追溯；候选不会自动写为已核验事实。
 - 提供未安装的 macOS `launchd` 每日任务模板。
@@ -51,13 +52,34 @@ https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_proxy=soc
 
 ### ETF 候选资料历史
 
-采集 iShares 的 IWM 或 TLT 候选资料时，会保留原始页面和结构化候选文件，并同时写入本地 SQLite 审计库。数据库仅保存 `pending_review` 候选，不会自动修改 `config/etf-profiles.json`。
+`etf-candidate-review` 可从 SPY、QQQ、IWM、TLT、GLD 的**预配置发行人官方基金页**采集明确标注的费用率或基准候选。每次采集都会保留原始 HTML、元数据和结构化候选，并写入本地 SQLite 审计库；数据库仅保存 `pending_review`，不会自动修改 `config/etf-profiles.json` 或标记任何事实为 `verified`。
 
 ```bash
-PYTHONPATH=src python -m investment_research.cli etf-candidate-review --symbol IWM
+PYTHONPATH=src python -m investment_research.cli etf-candidate-review --symbol SPY
 ```
 
-候选审核报告会读取该 ETF 最近的历史快照；数据库路径为 `data/processed/etf/candidate-history.sqlite3`，与其 WAL/SHM 文件均不提交 Git。
+候选审核报告会读取该 ETF 最近的历史快照；数据库路径为 `data/processed/etf/candidate-history.sqlite3`，与其 WAL/SHM 文件均不提交 Git。页面字段缺失、非 HTML 响应、非 HTTPS 或跨允许域重定向会明确失败；不会回退第三方数据或猜测字段。
+
+### 宏观预期差
+
+在 CPI、就业或 PCE 公布前，从人工核验的日历页面录入预期候选。`--scheduled-at` 必须使用带时区的 ISO 8601 时间，并与参考期结束日相隔 1–62 天；程序先确认 FRED 尚无目标期次观测，再在取得数据库写锁后生成不可由 CLI 指定的录入时间。FRED 无法确认或发布时点已到都会拒绝补录。发布时间和预期仍属于人工候选，不等于已验证的 point-in-time 数据。
+
+```bash
+PYTHONPATH=src python -m investment_research.cli macro-release expect \
+  --event cpi --metric cpi_mom_sa --period 2026-09 \
+  --scheduled-at 2026-10-13T08:30:00-04:00 \
+  --forecast 0.3 --previous 0.4 \
+  --source-label "人工核验来源" --source-url "https://example.com/calendar"
+```
+
+发布后同步 FRED 实际值并查询初始预期差：
+
+```bash
+PYTHONPATH=src python -m investment_research.cli macro-release sync-actuals
+PYTHONPATH=src python -m investment_research.cli macro-release list
+```
+
+首批指标键为 `cpi_mom_sa`、`core_cpi_mom_sa`、`payroll_change_sa`、`unemployment_rate_sa`、`pce_mom_sa`、`core_pce_mom_sa`。CPI/PCE 单位为百分比，非农单位为千人。数据库位于 `data/processed/macro/macro-release-history.sqlite3`；预期、实际版本与每次抓取记录只追加不覆盖。仅发布时间后 4 小时内的首次 FRED 捕获计算 surprise 候选；迟抓只记录值，不冒充官方初值。人工来源不等于官方事实，本地时间戳也不是第三方可信时间证明。
 
 ## 分层接入计划
 

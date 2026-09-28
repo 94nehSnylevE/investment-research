@@ -6,11 +6,11 @@
 
 | ETF | 发行人 | 官方资料页 | 计划审核字段 | 当前状态 |
 | --- | --- | --- | --- | --- |
-| SPY | State Street Global Advisors | [SPY 官方页](https://www.ssga.com/us/en/intermediary/capabilities/spdr-core-equity-etfs/spy-sp-500) | 费用率、S&P 500 基准、持仓/行业/国家权重 | 待人工审核 |
-| QQQ | Invesco | [QQQ 官方页](https://www.invesco.com/qqq-etf/en/home.html) | 费用率、Nasdaq-100 基准、持仓/行业/国家权重 | 待人工审核 |
-| IWM | iShares by BlackRock | [IWM 官方页](https://www.ishares.com/us/products/239710/ishares-russell-2000-etf) | 费用率、Russell 2000 基准、持仓/行业/国家权重 | 待人工审核 |
-| TLT | iShares by BlackRock | [TLT 官方页](https://www.ishares.com/us/products/239454/ishares-20-year-treasury-bond-etf) | 费用率、长久期美国国债基准、发行人/期限暴露 | 待人工审核 |
-| GLD | State Street Global Advisors | [GLD 官方页](https://www.ssga.com/us/en/intermediary/etfs/spdr-gold-shares-gld) | 费用率、黄金参考基准、黄金持有结构 | 待人工审核 |
+| SPY | State Street Global Advisors | [SPY 官方页](https://www.ssga.com/us/en/intermediary/capabilities/spdr-core-equity-etfs/spy-sp-500) | 费用率、S&P 500 基准、持仓/行业/国家权重 | 支持官方页面候选采集，待人工审核 |
+| QQQ | Invesco | [QQQ 官方页](https://www.invesco.com/qqq-etf/en/home.html) | 费用率、Nasdaq-100 基准、持仓/行业/国家权重 | 支持官方页面候选采集，待人工审核 |
+| IWM | iShares by BlackRock | [IWM 官方页](https://www.ishares.com/us/products/239710/ishares-russell-2000-etf) | 费用率、Russell 2000 基准、持仓/行业/国家权重 | 支持官方页面候选采集，待人工审核 |
+| TLT | iShares by BlackRock | [TLT 官方页](https://www.ishares.com/us/products/239454/ishares-20-year-treasury-bond-etf) | 费用率、长久期美国国债基准、发行人/期限暴露 | 支持官方页面候选采集，待人工审核 |
+| GLD | State Street Global Advisors | [GLD 官方页](https://www.ssga.com/us/en/intermediary/etfs/spdr-gold-shares-gld) | 费用率、黄金参考基准、黄金持有结构 | 支持官方页面候选采集，待人工审核 |
 
 ## 每只 ETF 的人工审核步骤
 

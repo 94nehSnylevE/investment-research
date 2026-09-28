@@ -9,7 +9,9 @@ from typing import Any, Optional
 
 from investment_research.data.daily_prices import DailyPrice, PriceFetchResult, fetch_us_etf_daily_prices
 from investment_research.data.fmp_daily_prices import fetch_us_etf_fmp_daily_prices
+from investment_research.etf_history import candidate_audit_summary
 from investment_research.etf_profiles import load_etf_profiles, profile_summary
+from investment_research.macro_releases import list_release_summaries
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_WATCHLIST = PROJECT_ROOT / "config" / "watchlists.json"
@@ -49,6 +51,8 @@ def build_daily_review(
     fmp_price_results: Optional[list[PriceFetchResult]] = None,
     macro_results: Optional[list[Any]] = None,
     fred_indicator_results: Optional[list[Any]] = None,
+    candidate_summaries: Optional[dict[str, dict[str, Any]]] = None,
+    macro_release_summaries: Optional[list[dict[str, Any]]] = None,
 ) -> str:
     """构建每日研究 Markdown，并清晰区分价格、资料状态、事实和待办。"""
     lines = ["# 每日研究报告", "", f"生成时间（UTC）：{generated_at.isoformat()}", "", "## 本次范围"]
@@ -58,6 +62,8 @@ def build_daily_review(
 
     if etf_profiles is not None:
         lines.extend(["", "## ETF 静态资料状态", *_profile_status_lines(config, etf_profiles)])
+    if candidate_summaries is not None:
+        lines.extend(["", "## ETF 官方候选资料审计", *_candidate_audit_lines(config, candidate_summaries)])
 
     if macro_results is not None:
         lines.extend(
@@ -98,6 +104,9 @@ def build_daily_review(
             else:
                 lines.append(f"| {result.display_name} | {result.observation_date} | {result.value:g} | {result.unit} | {result.original_publisher}（经 FRED） | `{result.cache_path.relative_to(PROJECT_ROOT)}` | pending_review |")
         lines.append("- FRED 指标用于追溯已发布观测；不是发布日期、市场预期或交易信号，且不会写入 ETF profile。")
+
+    if macro_release_summaries is not None:
+        lines.extend(["", "## 宏观预期与实际值审计", *_macro_release_lines(macro_release_summaries)])
 
     if price_results is None:
         lines.extend(["", "## 美股 ETF 日频价格", "- `--dry-run`：已校验配置，未联网抓取或写入价格数据缓存。"])
@@ -141,9 +150,20 @@ def run_daily_review(config_path: Path = DEFAULT_WATCHLIST, dry_run: bool = Fals
     """生成报告；dry_run 只校验配置及预览，绝不联网或写入价格缓存。"""
     config = load_watchlists(config_path)
     etf_profiles = load_etf_profiles()
+    candidate_summaries = {symbol: candidate_audit_summary(symbol) for symbol in etf_profiles}
+    macro_release_summaries = list_release_summaries()
     generated_at = datetime.now(timezone.utc).replace(microsecond=0)
     if dry_run:
-        print(build_daily_review(config, generated_at, etf_profiles=etf_profiles), end="")
+        print(
+            build_daily_review(
+                config,
+                generated_at,
+                etf_profiles=etf_profiles,
+                candidate_summaries=candidate_summaries,
+                macro_release_summaries=macro_release_summaries,
+            ),
+            end="",
+        )
         return None
 
     symbols = _us_etf_symbols(config)
@@ -156,7 +176,17 @@ def run_daily_review(config_path: Path = DEFAULT_WATCHLIST, dry_run: bool = Fals
     record_price_fetches([*price_results, *fmp_price_results])
     macro_results = fetch_official_macro_calendar(DATA_ROOT)
     fred_indicator_results = fetch_fred_indicators(DATA_ROOT)
-    report = build_daily_review(config, generated_at, price_results, etf_profiles, fmp_price_results, macro_results, fred_indicator_results)
+    report = build_daily_review(
+        config,
+        generated_at,
+        price_results,
+        etf_profiles,
+        fmp_price_results,
+        macro_results,
+        fred_indicator_results,
+        candidate_summaries,
+        macro_release_summaries,
+    )
     report_directory = PROJECT_ROOT / "reports" / "daily"
     report_directory.mkdir(parents=True, exist_ok=True)
     report_path = report_directory / f"{generated_at.date().isoformat()}_daily_review.md"
@@ -193,6 +223,42 @@ def _profile_status_lines(config: dict[str, Any], profiles: dict[str, dict[str, 
         reviewed_at = profile["reviewed_at"] or "N/A"
         lines.append(f"| {symbol} | {status} | {verified_count} | {pending_count} | {reviewed_at} |")
     lines.append("- 静态资料模板：`docs/templates/etf-research.md`；待核验状态不会把候选数值写入事实区。")
+    return lines
+
+
+def _candidate_audit_lines(config: dict[str, Any], summaries: dict[str, dict[str, Any]]) -> list[str]:
+    lines = [
+        "",
+        "| 标的 | 候选快照 | 候选文档 | 最近抓取（UTC） | 状态 |",
+        "| --- | ---: | ---: | --- | --- |",
+    ]
+    for symbol in _us_etf_symbols(config):
+        summary = summaries.get(symbol, {})
+        snapshot_count = int(summary.get("snapshot_count", 0))
+        source_count = int(summary.get("source_document_count", 0))
+        latest = summary.get("latest_retrieved_at") or "N/A"
+        status = "pending_review；不得作为事实" if snapshot_count else "尚无候选快照"
+        lines.append(f"| {symbol} | {snapshot_count} | {source_count} | {latest} | {status} |")
+    lines.append("- 此处只读本地候选审计索引，不联网、不展示待审核数值，也不会修改 ETF profile。")
+    return lines
+
+
+def _macro_release_lines(summaries: list[dict[str, Any]]) -> list[str]:
+    if not summaries:
+        return ["- 尚未录入发布前预期快照；请在事件公布前使用 `macro-release expect`。"]
+    lines = [
+        "",
+        "| 事件/参考期 | 指标 | 发布时间（UTC） | 预期 | 前值 | 首次捕获 | Surprise 候选 | 最新值/修订 | 来源/状态 |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    for item in summaries:
+        latest = "N/A" if item["latest_actual"] is None else f"{item['latest_actual']} / r{item['revision_number']}"
+        lines.append(
+            f"| {item['event_key']} / {item['reference_period']} | {item['display_name']} | {item['scheduled_at_utc']} | "
+            f"{item['forecast']} | {item['previous'] or 'N/A'} | {item['first_captured_actual'] or 'N/A'} | "
+            f"{item['surprise'] or 'N/A'} | {latest} | {item['source_label']} / {item['expectation_status']} / {item['status']} |"
+        )
+    lines.append("- 预期和发布时间均为人工发布前候选；实际值经 FRED 获取并按配置转换。仅 4 小时内首次捕获可计算 Surprise 候选，迟抓值不冒充官方初值；修订不覆盖首次捕获。")
     return lines
 
 
@@ -256,7 +322,7 @@ def _fmp_cross_check_lines(
 def _research_todos(price_results: list[PriceFetchResult]) -> list[str]:
     movable = [result for result in price_results if result.price and result.price.daily_change_pct is not None]
     moves = sorted(movable, key=lambda result: abs(result.price.daily_change_pct or 0), reverse=True)
-    todos = ["- [ ] 核验经济日历、利率与 ETF 相关宏观事件（当前未接入宏观数据源）。"]
+    todos = ["- [ ] 在 CPI、就业或 PCE 发布前使用 `macro-release expect` 保存预期候选值与来源证据。"]
     if moves:
         leading = moves[0].price
         assert leading is not None

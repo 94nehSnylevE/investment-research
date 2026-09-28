@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "market": "us",
+  "timezone": "America/New_York",
+  "metrics": {
+    "cpi_mom_sa": {
+      "event_key": "cpi",
+      "display_name": "CPI 月率（季调）",
+      "series_id": "CPIAUCSL",
+      "transform": "pct_change_1",
+      "unit": "percent",
+      "precision": 1,
+      "original_publisher": "U.S. Bureau of Labor Statistics"
+    },
+    "core_cpi_mom_sa": {
+      "event_key": "cpi",
+      "display_name": "核心 CPI 月率（季调）",
+      "series_id": "CPILFESL",
+      "transform": "pct_change_1",
+      "unit": "percent",
+      "precision": 1,
+      "original_publisher": "U.S. Bureau of Labor Statistics"
+    },
+    "payroll_change_sa": {
+      "event_key": "employment_situation",
+      "display_name": "非农就业变动（季调）",
+      "series_id": "PAYEMS",
+      "transform": "diff_1",
+      "unit": "thousands_of_persons",
+      "precision": 0,
+      "original_publisher": "U.S. Bureau of Labor Statistics"
+    },
+    "unemployment_rate_sa": {
+      "event_key": "employment_situation",
+      "display_name": "失业率（季调）",
+      "series_id": "UNRATE",
+      "transform": "identity",
+      "unit": "percent",
+      "precision": 1,
+      "original_publisher": "U.S. Bureau of Labor Statistics"
+    },
+    "pce_mom_sa": {
+      "event_key": "pce",
+      "display_name": "PCE 价格指数月率（季调）",
+      "series_id": "PCEPI",
+      "transform": "pct_change_1",
+      "unit": "percent",
+      "precision": 1,
+      "original_publisher": "U.S. Bureau of Economic Analysis"
+    },
+    "core_pce_mom_sa": {
+      "event_key": "pce",
+      "display_name": "核心 PCE 月率（季调）",
+      "series_id": "PCEPILFE",
+      "transform": "pct_change_1",
+      "unit": "percent",
+      "precision": 1,
+      "original_publisher": "U.S. Bureau of Economic Analysis"
+    }
+  }
+}
