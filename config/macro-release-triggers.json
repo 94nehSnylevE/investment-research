@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "note": "用官方新闻公告标题识别宏观数据已发布，作为触发 FRED 同步的信号；不代表已取得发布数值。",
+  "triggers": [
+    {
+      "trigger_key": "cpi_released",
+      "display_name": "CPI 已发布",
+      "title_keywords": ["consumer price index"],
+      "related_metrics": ["cpi_mom_sa", "core_cpi_mom_sa"]
+    },
+    {
+      "trigger_key": "employment_released",
+      "display_name": "就业报告已发布",
+      "title_keywords": ["employment situation"],
+      "related_metrics": ["payroll_change_sa", "unemployment_rate_sa"]
+    },
+    {
+      "trigger_key": "pce_released",
+      "display_name": "PCE / 个人收支已发布",
+      "title_keywords": ["personal income"],
+      "related_metrics": ["pce_mom_sa", "core_pce_mom_sa"]
+    },
+    {
+      "trigger_key": "fomc_statement",
+      "display_name": "FOMC 声明已发布",
+      "title_keywords": ["fomc statement"],
+      "related_metrics": []
+    },
+    {
+      "trigger_key": "gdp_released",
+      "display_name": "GDP 已发布",
+      "title_keywords": ["gross domestic product"],
+      "related_metrics": []
+    }
+  ]
+}

@@ -15,6 +15,8 @@ from investment_research.backtest.factors import (
 )
 from investment_research.daily_review import DEFAULT_WATCHLIST, run_daily_review
 from investment_research.data.realtime_quotes import latency_summary, monitor_realtime_quotes
+from investment_research.macro_latency import detect_release_signals, latency_report
+from investment_research.news_feeds import fetch_official_news, list_recent_news, news_feed_summary
 from investment_research.etf_candidates import collect_official_candidate, write_candidate_review
 from investment_research.etf_profiles import generate_research_template, load_etf_profiles
 from investment_research.macro_releases import list_release_summaries, record_expectation, sync_due_actuals
@@ -70,6 +72,19 @@ def build_parser() -> argparse.ArgumentParser:
     factor = subparsers.add_parser("factor-baseline", help="滚动样本外评估因子方向预测力")
     factor.add_argument("--dataset-id", help="数据集版本；默认使用最新版本")
     factor.add_argument("--horizon-days", type=int, default=5, help="预测未来交易日数")
+
+    news = subparsers.add_parser("news-feeds", help="采集官方发布源新闻（仅标题、链接与短摘要）")
+    news_actions = news.add_subparsers(dest="news_action", required=True)
+    news_actions.add_parser("fetch", help="抓取已登记官方源并去重入库")
+    news_list = news_actions.add_parser("list", help="只读列出最近条目")
+    news_list.add_argument("--limit", type=int, default=20, help="最大行数")
+    news_actions.add_parser("summary", help="只读汇总各来源条目数与最新发布时间")
+
+    macro_watch = subparsers.add_parser("macro-watch", help="基于官方公告识别宏观发布并度量获取延迟")
+    macro_watch_actions = macro_watch.add_subparsers(dest="macro_watch_action", required=True)
+    watch_detect = macro_watch_actions.add_parser("detect", help="从最近官方新闻中识别发布公告")
+    watch_detect.add_argument("--window-hours", type=int, default=36, help="回溯窗口（小时）")
+    macro_watch_actions.add_parser("latency", help="只读列出历史发布检测延迟")
 
     realtime = subparsers.add_parser("realtime-monitor", help="只读监控近实时报价与延迟（单一交易所口径）")
     realtime.add_argument("--symbols", nargs="+", default=["SPY", "QQQ", "GLD"], help="标的列表")
@@ -139,6 +154,29 @@ def main() -> None:
         )
         studies = study_macro_surprise_reaction(dataset_id=arguments.dataset_id)
         print(f"已生成因子基线报告：{write_factor_report(manifest, evaluations, studies)}")
+    elif arguments.command == "news-feeds":
+        if arguments.news_action == "fetch":
+            for result in fetch_official_news():
+                status = f"错误：{result.error}" if result.error else f"新增 {result.new_item_count} 条"
+                print(f"{result.feed_key}（{result.publisher}）：取得 {len(result.items)} 条；{status}")
+        elif arguments.news_action == "list":
+            print(json.dumps(list_recent_news(limit=arguments.limit), ensure_ascii=False, indent=2))
+        elif arguments.news_action == "summary":
+            print(json.dumps(news_feed_summary(), ensure_ascii=False, indent=2))
+    elif arguments.command == "macro-watch":
+        if arguments.macro_watch_action == "detect":
+            signals = detect_release_signals(window_hours=arguments.window_hours)
+            if not signals:
+                print("最近窗口内未识别到宏观发布公告。")
+            for signal in signals:
+                latency = (
+                    "N/A"
+                    if signal.detection_latency_seconds is None
+                    else f"{signal.detection_latency_seconds / 60:.1f} 分钟"
+                )
+                print(f"{signal.trigger_key}：{signal.matched_title}（发布 {signal.published_at_utc}；检测延迟 {latency}）")
+        elif arguments.macro_watch_action == "latency":
+            print(json.dumps(latency_report(), ensure_ascii=False, indent=2))
     elif arguments.command == "realtime-monitor":
         if arguments.summary:
             print(json.dumps(latency_summary(), ensure_ascii=False, indent=2))

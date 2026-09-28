@@ -7,7 +7,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/sy/Desktop/Code/investment-research/scripts/run_daily_review.sh</string>
+    <string>__PROJECT_ROOT__/scripts/run_daily_review.sh</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict>
@@ -16,9 +16,11 @@
     <key>Minute</key>
     <integer>30</integer>
   </dict>
+  <key>RunAtLoad</key>
+  <false/>
   <key>StandardOutPath</key>
-  <string>/Users/sy/Desktop/Code/investment-research/logs/daily-review.out.log</string>
+  <string>__PROJECT_ROOT__/logs/daily-review.out.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/sy/Desktop/Code/investment-research/logs/daily-review.err.log</string>
+  <string>__PROJECT_ROOT__/logs/daily-review.err.log</string>
 </dict>
 </plist>

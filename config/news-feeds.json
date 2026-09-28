@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "note": "仅登记官方/政府发布源。只保存标题、链接、发布时间与短摘要，不保存全文，避免版权与再分发问题。",
+  "feeds": [
+    {
+      "feed_key": "federal_reserve_press",
+      "display_name": "Federal Reserve 新闻发布",
+      "publisher": "Federal Reserve Board",
+      "feed_url": "https://www.federalreserve.gov/feeds/press_all.xml",
+      "allowed_host": "www.federalreserve.gov",
+      "content_rights": "us_government_public_domain"
+    },
+    {
+      "feed_key": "bea_news",
+      "display_name": "BEA 新闻发布",
+      "publisher": "U.S. Bureau of Economic Analysis",
+      "feed_url": "https://apps.bea.gov/rss/rss.xml",
+      "allowed_host": "apps.bea.gov",
+      "content_rights": "us_government_public_domain"
+    },
+    {
+      "feed_key": "bls_news",
+      "display_name": "BLS 新闻发布",
+      "publisher": "U.S. Bureau of Labor Statistics",
+      "feed_url": "https://www.bls.gov/feed/bls_latest.rss",
+      "allowed_host": "www.bls.gov",
+      "content_rights": "us_government_public_domain",
+      "known_issue": "当前网络下返回 HTTP 403；会明确降级，不使用第三方替代数据。"
+    }
+  ]
+}

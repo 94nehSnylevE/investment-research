@@ -12,6 +12,7 @@ from investment_research.data.fmp_daily_prices import fetch_us_etf_fmp_daily_pri
 from investment_research.etf_history import candidate_audit_summary
 from investment_research.etf_profiles import load_etf_profiles, profile_summary
 from investment_research.macro_releases import list_release_summaries
+from investment_research.news_feeds import list_recent_news
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_WATCHLIST = PROJECT_ROOT / "config" / "watchlists.json"
@@ -53,6 +54,7 @@ def build_daily_review(
     fred_indicator_results: Optional[list[Any]] = None,
     candidate_summaries: Optional[dict[str, dict[str, Any]]] = None,
     macro_release_summaries: Optional[list[dict[str, Any]]] = None,
+    recent_news: Optional[list[dict[str, Any]]] = None,
 ) -> str:
     """构建每日研究 Markdown，并清晰区分价格、资料状态、事实和待办。"""
     lines = ["# 每日研究报告", "", f"生成时间（UTC）：{generated_at.isoformat()}", "", "## 本次范围"]
@@ -107,6 +109,8 @@ def build_daily_review(
 
     if macro_release_summaries is not None:
         lines.extend(["", "## 宏观预期与实际值审计", *_macro_release_lines(macro_release_summaries)])
+    if recent_news is not None:
+        lines.extend(["", "## 官方发布源新闻（候选）", *_news_lines(recent_news)])
 
     if price_results is None:
         lines.extend(["", "## 美股 ETF 日频价格", "- `--dry-run`：已校验配置，未联网抓取或写入价格数据缓存。"])
@@ -152,6 +156,7 @@ def run_daily_review(config_path: Path = DEFAULT_WATCHLIST, dry_run: bool = Fals
     etf_profiles = load_etf_profiles()
     candidate_summaries = {symbol: candidate_audit_summary(symbol) for symbol in etf_profiles}
     macro_release_summaries = list_release_summaries()
+    recent_news = list_recent_news(limit=10)
     generated_at = datetime.now(timezone.utc).replace(microsecond=0)
     if dry_run:
         print(
@@ -161,6 +166,7 @@ def run_daily_review(config_path: Path = DEFAULT_WATCHLIST, dry_run: bool = Fals
                 etf_profiles=etf_profiles,
                 candidate_summaries=candidate_summaries,
                 macro_release_summaries=macro_release_summaries,
+                recent_news=recent_news,
             ),
             end="",
         )
@@ -186,6 +192,7 @@ def run_daily_review(config_path: Path = DEFAULT_WATCHLIST, dry_run: bool = Fals
         fred_indicator_results,
         candidate_summaries,
         macro_release_summaries,
+        recent_news,
     )
     report_directory = PROJECT_ROOT / "reports" / "daily"
     report_directory.mkdir(parents=True, exist_ok=True)
@@ -240,6 +247,19 @@ def _candidate_audit_lines(config: dict[str, Any], summaries: dict[str, dict[str
         status = "pending_review；不得作为事实" if snapshot_count else "尚无候选快照"
         lines.append(f"| {symbol} | {snapshot_count} | {source_count} | {latest} | {status} |")
     lines.append("- 此处只读本地候选审计索引，不联网、不展示待审核数值，也不会修改 ETF profile。")
+    return lines
+
+
+def _news_lines(items: list[dict[str, Any]]) -> list[str]:
+    if not items:
+        return ["- 本地尚无官方新闻条目；可运行 `news-feeds fetch` 采集。"]
+    lines = ["", "| 发布时间（UTC） | 发布方 | 标题 | 状态 |", "| --- | --- | --- | --- |"]
+    for item in items:
+        title = item["title"][:90]
+        lines.append(
+            f"| {item['published_at_utc'] or 'N/A'} | {item['publisher']} | [{title}]({item['link']}) | {item['status']} |"
+        )
+    lines.append("- 仅展示官方发布源的标题与链接；不保存正文、不做情绪判断，也不构成交易信号。")
     return lines
 
 

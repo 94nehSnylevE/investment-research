@@ -18,7 +18,9 @@
 - 提供近实时报价只读监控：记录供应商时间戳、延迟、交易所与连接状态，并标注单一交易所与非授权来源边界。
 - 将 Yahoo/FMP 每次日频价格结果（含实时、缓存降级和失败）写入本地 SQLite 审计库，支持按标的、来源和交易日追溯。
 - 将 ETF 官方页面候选资料以 SQLite 审计快照保存到 `data/processed/etf/candidate-history.sqlite3`，支持按标的和抓取时间追溯；候选不会自动写为已核验事实。
-- 提供未安装的 macOS `launchd` 每日任务模板。
+- 采集 Federal Reserve、BEA、BLS 官方 RSS 的发布标题与链接，去重后写入独立 append-only 审计库；不保存正文、不做情绪判断。
+- 从官方公告识别 CPI、就业、PCE、FOMC、GDP 是否已发布，记录检测延迟并触发实际值同步，降低发布后的获取滞后。
+- 提供可安装/可卸载的 macOS `launchd` 定时任务：每日研究报告与宏观发布监视。
 
 数据仅用于研究，不调用 LLM、不发送提醒、不连接券商、不下单。价格以 Yahoo 的未复权 `close` 记录；不得与其他复权口径混合用于回测，所有结果都须人工核验。
 
@@ -83,6 +85,31 @@ PYTHONPATH=src python -m investment_research.cli macro-release list
 ```
 
 首批指标键为 `cpi_mom_sa`、`core_cpi_mom_sa`、`payroll_change_sa`、`unemployment_rate_sa`、`pce_mom_sa`、`core_pce_mom_sa`。CPI/PCE 单位为百分比，非农单位为千人。数据库位于 `data/processed/macro/macro-release-history.sqlite3`；预期、实际版本与每次抓取记录只追加不覆盖。仅发布时间后 4 小时内的首次 FRED 捕获计算 surprise 候选；迟抓只记录值，不冒充官方初值。人工来源不等于官方事实，本地时间戳也不是第三方可信时间证明。
+
+### 官方新闻与宏观发布时效
+
+采集政府/央行官方 RSS，只保存标题、链接、发布时间与短摘要，不保存正文。
+
+```bash
+PYTHONPATH=src python -m investment_research.cli news-feeds fetch
+PYTHONPATH=src python -m investment_research.cli news-feeds list --limit 10
+PYTHONPATH=src python -m investment_research.cli macro-watch detect
+PYTHONPATH=src python -m investment_research.cli macro-watch latency
+```
+
+已登记 Federal Reserve、BEA、BLS 三个源（BLS 当前返回 403，会明确降级）。`macro-watch detect` 从官方公告中识别 CPI、就业、PCE、FOMC、GDP 是否已发布，并记录检测延迟，用于在发布后立即触发 FRED 同步，而不是盲目轮询。
+
+宏观滞后要区分两类：**参考期滞后**（8 月 CPI 在 9 月中旬才发布）由官方口径决定，无法优化；**获取滞后**（发布后多久拿到）才是本模块优化的对象。
+
+### 定时任务
+
+```bash
+bash scripts/install_launchd_jobs.sh install
+bash scripts/install_launchd_jobs.sh status
+bash scripts/install_launchd_jobs.sh uninstall
+```
+
+安装两个用户级 `launchd` 任务：`daily-review`（每日 18:30 生成研究报告）和 `macro-watch`（08:35、08:50、09:30、14:15 抓新闻、识别发布、同步实际值）。任务只做只读采集与本地写库，不发送提醒、不连接券商、不下单；`uninstall` 可完全撤销。
 
 ### 近实时行情监控
 
