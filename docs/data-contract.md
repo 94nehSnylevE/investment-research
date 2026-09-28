@@ -45,6 +45,27 @@ CPI、就业、PCE、FOMC 与利率页面的发布日期属于独立的宏观候
 - FRED 是分发渠道，原始发布方仍记录为 BLS 或 BEA；FRED 当前 vintage 不保证等于最初官方发布稿，延迟首次抓取必须标记为 `late_first_capture`。
 - 本地 SQLite、系统时钟和哈希链可防止普通误改，但不能提供独立第三方可信时间证明；严肃回测仍需外部时间戳或授权 point-in-time 数据。
 
+## 近实时报价监控
+
+流式报价写入独立的 `data/processed/realtime/intraday-quote-monitor.sqlite3`，只追加，且与日频价格库、回测数据集隔离。
+
+- 每条报价必须记录 `provider`、交易所、供应商时间戳、本地接收时间、延迟与新鲜度状态。
+- 数据为单一交易所报价（`single_venue_not_nbbo`），不得描述为全市场最优价或成交价。
+- 来源为非官方授权端点（`unlicensed_research_only`）：仅限个人研究，不得用于自动交易、对外分发或商业用途。
+- 延迟为负且超过 1 秒记为 `clock_skew_suspected`，超过 60 秒记为 `stale`；两者都不得当作可用实时数据。
+- 连接失败或未收到报价必须显式记录状态，不得用历史价格或日频收盘价填充。
+
+## 回测数据集与因子评估
+
+回测使用独立冻结的数据集，存放于 `data/processed/backtest/datasets/<dataset_id>/`，口径为 Yahoo 复权总回报收盘价（`yahoo_auto_adjusted_total_return`）。
+
+- 该数据集与未复权日频价格库、ETF 候选库、宏观库相互独立；不同复权口径不得混入同一回测。
+- 每个版本必须包含价格 CSV、清单（含 SHA-256、标的、区间、行数）与质量报告；加载时校验哈希，不一致或存在缺失值必须拒绝使用。
+- 数据集一经冻结不得修改；更换标的、区间或复权方式必须生成新版本，回测结论必须引用具体 `dataset_id`。
+- 回测必须同时展示基准、交易成本与换手；缺少成本假设的收益不得作为结论。
+- 方向预测必须使用滚动前向验证，并与「无条件猜涨」基准和样本量、z 值一同展示。命中率高于 50% 但未超过基准，或 |z| < 2，一律视为无预测力证据。
+- 回测与因子结果只是研究参照，不得作为交易信号、目标价或下单依据。
+
 ## 日频价格历史
 
 Yahoo Finance 与 FMP 的每次日频拉取会保留原始 JSON/metadata，并将来源、抓取时间、`live`/`cache`/`error` 状态、证据文件 SHA-256 和可用的最新交易日 OHLCV 写入 `data/processed/prices/daily-price-history.sqlite3`。

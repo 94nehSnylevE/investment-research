@@ -13,5 +13,10 @@ reports/daily/*
 !reports/daily/.gitkeep
 reports/research/*
 !reports/research/.gitkeep
+reports/backtest/*
+!reports/backtest/.gitkeep
 logs/*
 !logs/.gitkeep
+
+# 代码审查工具的本地产物。
+semantic-review/

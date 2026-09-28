@@ -13,6 +13,9 @@
 - 从 BLS、BEA、Federal Reserve 官方页面采集宏观发布日期候选，保存本地原始证据与独立 SQLite 审计索引；来源失败会明确降级。
 - 通过 FRED CSV 自动获取 BLS 发布的 CPI、核心 CPI、非农与失业率最新观测；可在无代理环境运行，仍标记为待审核候选。
 - 支持在宏观数据发布前人工保存预期/前值候选，发布后按参考期从 FRED 计算首次捕获值、预期差候选和后续修订，保存到独立 append-only SQLite 审计库。
+- 将长历史复权总回报价格冻结为带哈希清单的版本化数据集，并在其上运行买入持有、月度再平衡与趋势规则的朴素基线回测。
+- 提供滚动样本外的因子方向评估，与「无条件猜涨」基准对比后给出是否存在预测力的诚实结论。
+- 提供近实时报价只读监控：记录供应商时间戳、延迟、交易所与连接状态，并标注单一交易所与非授权来源边界。
 - 将 Yahoo/FMP 每次日频价格结果（含实时、缓存降级和失败）写入本地 SQLite 审计库，支持按标的、来源和交易日追溯。
 - 将 ETF 官方页面候选资料以 SQLite 审计快照保存到 `data/processed/etf/candidate-history.sqlite3`，支持按标的和抓取时间追溯；候选不会自动写为已核验事实。
 - 提供未安装的 macOS `launchd` 每日任务模板。
@@ -80,6 +83,34 @@ PYTHONPATH=src python -m investment_research.cli macro-release list
 ```
 
 首批指标键为 `cpi_mom_sa`、`core_cpi_mom_sa`、`payroll_change_sa`、`unemployment_rate_sa`、`pce_mom_sa`、`core_pce_mom_sa`。CPI/PCE 单位为百分比，非农单位为千人。数据库位于 `data/processed/macro/macro-release-history.sqlite3`；预期、实际版本与每次抓取记录只追加不覆盖。仅发布时间后 4 小时内的首次 FRED 捕获计算 surprise 候选；迟抓只记录值，不冒充官方初值。人工来源不等于官方事实，本地时间戳也不是第三方可信时间证明。
+
+### 近实时行情监控
+
+通过 Yahoo 流式端点接收近实时报价，只用于观察与延迟审计。
+
+```bash
+PYTHONPATH=src python -m investment_research.cli realtime-monitor --symbols SPY QQQ GLD --duration-seconds 60
+PYTHONPATH=src python -m investment_research.cli realtime-monitor --summary
+```
+
+监控记录写入 `data/processed/realtime/intraday-quote-monitor.sqlite3`，保存供应商时间戳、接收时间、延迟、交易所与连接状态，只追加不覆盖。
+
+**口径边界**：报价来自**单一交易所**（实测 SPY/GLD 为 `PCX`、QQQ 为 `NGM`），不是全市场合并最优价（NBBO）；来源为非官方授权端点，不得用于成交判断、自动交易或对外分发。当供应商时间戳早于本机时钟超过 1 秒时标记 `clock_skew_suspected`；超过 60 秒标记 `stale`。这些报价与日频价格库、回测数据集口径不同，不可混用。
+
+### 回测与因子基线
+
+先冻结一份独立的长历史数据集。该数据集使用 Yahoo 复权总回报收盘价，与 `data/raw/prices/` 的未复权价格库口径不同，**不可混用**。
+
+```bash
+PYTHONPATH=src python -m investment_research.cli backtest-dataset build --period 10y
+PYTHONPATH=src python -m investment_research.cli backtest-dataset list
+PYTHONPATH=src python -m investment_research.cli backtest --cost-bps 5
+PYTHONPATH=src python -m investment_research.cli factor-baseline --horizon-days 5
+```
+
+数据集写入 `data/processed/backtest/datasets/<dataset_id>/`，含价格 CSV、清单（SHA-256）与质量报告；回测前会校验哈希，不一致直接拒绝。回测实现买入持有、月度等权再平衡和 SMA 趋势三个朴素基线，统一计入单边成本与换手，并与基准并列。
+
+因子基线用滚动前向验证评估未来涨跌方向，并强制与「无条件猜涨」基准对比。当前 10 年样本的实测结论是**没有预测力证据**：五只 ETF 的样本外命中率均未超过猜涨基准，IC 接近 0。该模块只用于建立诚实参照，不产生交易信号或目标价。
 
 ## 分层接入计划
 

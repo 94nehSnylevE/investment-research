@@ -6,7 +6,15 @@ import argparse
 import json
 from pathlib import Path
 
+from investment_research.backtest.dataset import build_frozen_dataset, list_frozen_datasets
+from investment_research.backtest.engine import run_baseline_backtests, write_backtest_report
+from investment_research.backtest.factors import (
+    evaluate_direction_baseline,
+    study_macro_surprise_reaction,
+    write_factor_report,
+)
 from investment_research.daily_review import DEFAULT_WATCHLIST, run_daily_review
+from investment_research.data.realtime_quotes import latency_summary, monitor_realtime_quotes
 from investment_research.etf_candidates import collect_official_candidate, write_candidate_review
 from investment_research.etf_profiles import generate_research_template, load_etf_profiles
 from investment_research.macro_releases import list_release_summaries, record_expectation, sync_due_actuals
@@ -45,6 +53,28 @@ def build_parser() -> argparse.ArgumentParser:
     macro_sync.add_argument("--release-id", help="只同步指定发布实例；默认同步全部到期实例")
     macro_list = macro_actions.add_parser("list", help="只读列出预期、实际、预期差与修订")
     macro_list.add_argument("--limit", type=int, default=20, help="最大行数")
+
+    dataset = subparsers.add_parser("backtest-dataset", help="管理回测用的冻结历史数据集")
+    dataset_actions = dataset.add_subparsers(dest="dataset_action", required=True)
+    dataset_build = dataset_actions.add_parser("build", help="抓取长历史复权价格并冻结为新版本")
+    dataset_build.add_argument("--symbols", nargs="+", default=["SPY", "QQQ", "IWM", "TLT", "GLD"], help="标的列表")
+    dataset_build.add_argument("--period", default="10y", help="Yahoo 历史区间，例如 10y")
+    dataset_actions.add_parser("list", help="只读列出本地冻结数据集版本")
+
+    backtest = subparsers.add_parser("backtest", help="在冻结数据集上运行朴素基线回测")
+    backtest.add_argument("--dataset-id", help="数据集版本；默认使用最新版本")
+    backtest.add_argument("--benchmark", default="SPY", help="基准标的")
+    backtest.add_argument("--cost-bps", type=float, default=5.0, help="单边交易成本（bps）")
+    backtest.add_argument("--sma-window", type=int, default=200, help="趋势规则均线窗口")
+
+    factor = subparsers.add_parser("factor-baseline", help="滚动样本外评估因子方向预测力")
+    factor.add_argument("--dataset-id", help="数据集版本；默认使用最新版本")
+    factor.add_argument("--horizon-days", type=int, default=5, help="预测未来交易日数")
+
+    realtime = subparsers.add_parser("realtime-monitor", help="只读监控近实时报价与延迟（单一交易所口径）")
+    realtime.add_argument("--symbols", nargs="+", default=["SPY", "QQQ", "GLD"], help="标的列表")
+    realtime.add_argument("--duration-seconds", type=int, default=60, help="监控时长（秒）")
+    realtime.add_argument("--summary", action="store_true", help="只读汇总历史会话延迟，不建立连接")
     return parser
 
 
@@ -84,6 +114,49 @@ def main() -> None:
             print(json.dumps(sync_due_actuals(arguments.release_id), ensure_ascii=False, indent=2))
         elif arguments.macro_action == "list":
             print(json.dumps(list_release_summaries(limit=arguments.limit), ensure_ascii=False, indent=2))
+    elif arguments.command == "backtest-dataset":
+        if arguments.dataset_action == "build":
+            result = build_frozen_dataset(arguments.symbols, period=arguments.period)
+            print(f"已冻结数据集：{result.dataset_directory}")
+            print(f"标的 {', '.join(result.symbols)}；{result.row_count} 个交易日；{result.start_date} 至 {result.end_date}")
+            for issue in result.blocking_issues:
+                print(f"阻断问题：{issue}")
+            for warning in result.warnings:
+                print(f"数据质量告警：{warning}")
+        elif arguments.dataset_action == "list":
+            print(json.dumps(list_frozen_datasets(), ensure_ascii=False, indent=2))
+    elif arguments.command == "backtest":
+        results = run_baseline_backtests(
+            dataset_id=arguments.dataset_id,
+            benchmark=arguments.benchmark,
+            cost_bps=arguments.cost_bps,
+            sma_window=arguments.sma_window,
+        )
+        print(f"已生成回测报告：{write_backtest_report(results)}")
+    elif arguments.command == "factor-baseline":
+        manifest, evaluations = evaluate_direction_baseline(
+            dataset_id=arguments.dataset_id, horizon_days=arguments.horizon_days
+        )
+        studies = study_macro_surprise_reaction(dataset_id=arguments.dataset_id)
+        print(f"已生成因子基线报告：{write_factor_report(manifest, evaluations, studies)}")
+    elif arguments.command == "realtime-monitor":
+        if arguments.summary:
+            print(json.dumps(latency_summary(), ensure_ascii=False, indent=2))
+        else:
+            session = monitor_realtime_quotes(arguments.symbols, arguments.duration_seconds)
+            print(
+                json.dumps(
+                    {
+                        "session_id": session.session_id,
+                        "connection_status": session.connection_status,
+                        "tick_count": session.tick_count,
+                        "error": session.error,
+                        "venue_scope": "单一交易所报价，非全市场 NBBO；仅供研究观察，不得用于成交判断。",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
 
 
 if __name__ == "__main__":
