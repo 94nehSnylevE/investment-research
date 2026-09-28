@@ -246,6 +246,34 @@ def record_expectation(
     return {"release_id": release_id, "expectation_id": expectation_id, "recorded_at_utc": recorded_at}
 
 
+def list_todays_release_events(
+    database_path: Path = DEFAULT_RELEASE_DB, reference_date: Optional[date] = None
+) -> list[dict[str, Any]]:
+    """只读列出本地日期（America/New_York）今天到期、已录入预期的发布实例。"""
+    if not database_path.exists():
+        return []
+    from zoneinfo import ZoneInfo
+
+    market_zone = ZoneInfo("America/New_York")
+    today = reference_date or datetime.now(market_zone).date()
+    connection = _connect_readonly(database_path)
+    try:
+        rows = connection.execute(
+            """SELECT DISTINCT r.release_id, r.event_key, r.reference_period, r.scheduled_at_utc
+               FROM release_instances r JOIN expectation_snapshots e ON e.release_id = r.release_id"""
+        ).fetchall()
+    except sqlite3.Error:
+        return []
+    finally:
+        connection.close()
+    matches: list[dict[str, Any]] = []
+    for row in rows:
+        scheduled_local = datetime.fromisoformat(row["scheduled_at_utc"]).astimezone(market_zone)
+        if scheduled_local.date() == today:
+            matches.append(dict(row))
+    return matches
+
+
 def sync_due_actuals(
     release_id: Optional[str] = None,
     database_path: Path = DEFAULT_RELEASE_DB,

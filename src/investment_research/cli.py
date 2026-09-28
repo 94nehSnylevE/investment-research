@@ -19,7 +19,12 @@ from investment_research.macro_latency import detect_release_signals, latency_re
 from investment_research.news_feeds import fetch_official_news, list_recent_news, news_feed_summary
 from investment_research.etf_candidates import collect_official_candidate, write_candidate_review
 from investment_research.etf_profiles import generate_research_template, load_etf_profiles
-from investment_research.macro_releases import list_release_summaries, record_expectation, sync_due_actuals
+from investment_research.macro_releases import (
+    list_release_summaries,
+    list_todays_release_events,
+    record_expectation,
+    sync_due_actuals,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,6 +60,9 @@ def build_parser() -> argparse.ArgumentParser:
     macro_sync.add_argument("--release-id", help="只同步指定发布实例；默认同步全部到期实例")
     macro_list = macro_actions.add_parser("list", help="只读列出预期、实际、预期差与修订")
     macro_list.add_argument("--limit", type=int, default=20, help="最大行数")
+    macro_actions.add_parser(
+        "today", help="只读检查纽约时间今天是否有已录入预期的发布实例（供轮询脚本判断是否加密）"
+    )
 
     dataset = subparsers.add_parser("backtest-dataset", help="管理回测用的冻结历史数据集")
     dataset_actions = dataset.add_subparsers(dest="dataset_action", required=True)
@@ -129,6 +137,10 @@ def main() -> None:
             print(json.dumps(sync_due_actuals(arguments.release_id), ensure_ascii=False, indent=2))
         elif arguments.macro_action == "list":
             print(json.dumps(list_release_summaries(limit=arguments.limit), ensure_ascii=False, indent=2))
+        elif arguments.macro_action == "today":
+            events = list_todays_release_events()
+            print(json.dumps(events, ensure_ascii=False, indent=2))
+            raise SystemExit(0 if events else 1)
     elif arguments.command == "backtest-dataset":
         if arguments.dataset_action == "build":
             result = build_frozen_dataset(arguments.symbols, period=arguments.period)

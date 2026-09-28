@@ -99,6 +99,13 @@ PYTHONPATH=src python -m investment_research.cli macro-watch latency
 
 已登记 Federal Reserve、BEA、BLS 三个源（BLS 当前返回 403，会明确降级）。`macro-watch detect` 从官方公告中识别 CPI、就业、PCE、FOMC、GDP 是否已发布，并记录检测延迟，用于在发布后立即触发 FRED 同步，而不是盲目轮询。
 
+`scripts/run_macro_watch.sh` 会先用 `macro-release today` 只读检查纽约时间今天是否有已用 `macro-release expect` 录入过预期的发布实例：
+
+- **命中**：本次调用内以 `MACRO_WATCH_DENSE_INTERVAL_SECONDS`（默认 300 秒）为间隔连续轮询，最长持续 `MACRO_WATCH_DENSE_DURATION_SECONDS`（默认 5400 秒，即 90 分钟）。
+- **未命中**：只运行一次，交给 launchd 现有的稀疏时点（08:35、08:50、09:30、14:15）。
+
+这只压缩「获取滞后」，即 FRED 更新后多久被本机拉取；不改变「参考期滞后」，也不能让 BLS 的 403 消失。
+
 宏观滞后要区分两类：**参考期滞后**（8 月 CPI 在 9 月中旬才发布）由官方口径决定，无法优化；**获取滞后**（发布后多久拿到）才是本模块优化的对象。
 
 ### 定时任务

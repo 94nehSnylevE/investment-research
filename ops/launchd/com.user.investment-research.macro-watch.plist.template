@@ -39,6 +39,9 @@
   </array>
   <key>RunAtLoad</key>
   <false/>
+  <!-- 发布日会在脚本内以 5 分钟间隔轮询最长 90 分钟；此处放宽超时避免被 launchd 提前终止。 -->
+  <key>ExitTimeOut</key>
+  <integer>5700</integer>
   <key>StandardOutPath</key>
   <string>__PROJECT_ROOT__/logs/macro-watch.out.log</string>
   <key>StandardErrorPath</key>
